@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="he" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SKVERER - Smooth Clicker Burst</title>
+    <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #1A1A24;
+            --e-green: #34C759;
+        }
+
+        /* הסרת ה-Scrollbar */
+        ::-webkit-scrollbar { display: none; }
+        
+        body {
+            margin: 0;
+            background-color: var(--bg-color);
+            font-family: 'Permanent Marker', cursive;
+            overflow-x: hidden;
+            height: 400vh; 
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* קונטיינר הטקסט */
+        .scroll-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .animated-text {
+            display: flex;
+            gap: 10px;
+            font-size: clamp(3rem, 15vw, 12rem);
+            will-change: transform;
+        }
+
+        .animated-text span {
+            display: inline-block;
+            color: var(--color);
+            text-shadow: 4px 4px 0 #000;
+            animation: wiggle 0.4s infinite;
+            animation-delay: calc(-0.1s * var(--i));
+        }
+
+        @keyframes wiggle {
+            0%, 100% { transform: translate(0,0) rotate(0); }
+            25% { transform: translate(-2px, 2px) rotate(-1deg); }
+            75% { transform: translate(2px, -2px) rotate(1deg); }
+        }
+
+        /* שלב הקליקר */
+        #clicker-stage {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            background-color: var(--e-green);
+            display: none; /* מופעל דרך JS */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+
+        /* אנימציית ה"בקיעה" מהמרכז */
+        .main-button {
+            padding: 30px 50px;
+            font-size: clamp(2rem, 8vw, 4rem);
+            font-family: 'Permanent Marker', cursive;
+            background: #fff;
+            border: 8px solid #000;
+            box-shadow: 12px 12px 0 #000;
+            cursor: pointer;
+            user-select: none;
+            touch-action: manipulation;
+            
+            /* האנימציה של ההופעה */
+            animation: burstOut 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards, 
+                       wiggle 0.3s infinite;
+            transform-origin: center;
+        }
+
+        @keyframes burstOut {
+            0% {
+                transform: scale(0) rotate(-20deg);
+                opacity: 0;
+            }
+            100% {
+                transform: scale(1) rotate(0deg);
+                opacity: 1;
+            }
+        }
+
+        .main-button:active {
+            transform: scale(0.95);
+            box-shadow: 6px 6px 0 #000;
+        }
+
+        /* אימוג'ים */
+        .emoji {
+            position: fixed;
+            top: -100px;
+            font-size: 3rem;
+            z-index: 100;
+            pointer-events: none;
+            animation: fall linear forwards;
+        }
+
+        @keyframes fall {
+            from { transform: translateY(0) rotate(0deg); }
+            to { transform: translateY(120vh) rotate(360deg); }
+        }
+
+        .score-board {
+            margin-top: 40px;
+            font-size: 1.8rem;
+            color: #000;
+            background: rgba(255,255,255,0.4);
+            padding: 5px 25px;
+            border: 4px solid #000;
+            opacity: 0;
+            animation: fadeIn 0.5s 0.6s forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scroll-container" id="text-layer">
+        <h1 class="animated-text" id="text-wrap">
+            <span style="--i:1; --color: #FF3B30;">S</span>
+            <span style="--i:2; --color: #FF9500;">K</span>
+            <span style="--i:3; --color: #FFCC00;">V</span>
+            <span style="--i:4; --color: #34C759;">E</span>
+            <span style="--i:5; --color: #00C7BE;">R</span>
+            <span style="--i:6; --color: #007AFF;">E</span>
+            <span style="--i:7; --color: #AF52DE;">R</span>
+        </h1>
+    </div>
+
+    <div id="clicker-stage">
+        <button class="main-button" id="clickBtn">CLICK!</button>
+        <div class="score-board">SCORE: <span id="score">0</span></div>
+    </div>
+
+    <script>
+        const textWrap = document.getElementById('text-wrap');
+        const textLayer = document.getElementById('text-layer');
+        const clickerStage = document.getElementById('clicker-stage');
+        const scoreDisplay = document.getElementById('score');
+        const clickBtn = document.getElementById('clickBtn');
+        
+        let score = 0;
+        let isLocked = false;
+
+        window.addEventListener('scroll', () => {
+            if (isLocked) return;
+
+            // חישוב אחוז הגלילה
+            const scrollPercent = window.scrollY / (document.body.offsetHeight - window.innerHeight);
+            
+            // הגדלת הטקסט
+            const scale = 1 + (scrollPercent * 85);
+            textWrap.style.transform = `scale(${scale})`;
+
+            // כשה-E ממלאת את המסך (92% גלילה)
+            if (scrollPercent > 0.92) {
+                lockAndShowClicker();
+            }
+        });
+
+        function lockAndShowClicker() {
+            isLocked = true;
+            
+            // מעבר חלק: קודם מעלימים את הטקסט, אז מראים את הקליקר
+            textLayer.style.transition = "opacity 0.3s";
+            textLayer.style.opacity = "0";
+
+            setTimeout(() => {
+                textLayer.style.display = 'none';
+                clickerStage.style.display = 'flex';
+                // נעילת גלילה
+                document.body.style.height = '100vh';
+                document.body.style.overflow = 'hidden';
+                window.scrollTo(0, 0);
+            }, 300);
+        }
+
+        clickBtn.addEventListener('click', () => {
+            score++;
+            scoreDisplay.innerText = score;
+
+            const emojis = ['🚀', '🍕', '🎉', '🔥', '💎', '🌈', '🍦', '👾', '✨', '🤘', '🍄', '🦁', '💥'];
+            
+            for(let i = 0; i < 12; i++) {
+                createEmoji(emojis[Math.floor(Math.random() * emojis.length)]);
+            }
+        });
+
+        function createEmoji(symbol) {
+            const e = document.createElement('div');
+            e.className = 'emoji';
+            e.innerText = symbol;
+            e.style.left = Math.random() * 90 + 5 + "vw";
+            const duration = Math.random() * 1.5 + 1;
+            e.style.animationDuration = duration + "s";
+            document.body.appendChild(e);
+            setTimeout(() => e.remove(), duration * 1000);
+        }
+    </script>
+</body>
+</html>
